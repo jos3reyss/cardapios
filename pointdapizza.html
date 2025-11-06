@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardápio Online - POINT DA PIZZA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth; /* Adiciona rolagem suave */
+        }
+        .hidden {
+            display: none;
+        }
+        /* Estilo para o link da categoria ativa */
+        .category-link.active {
+            background-color: #fef9c3; /* yellow-100 */
+            color: #b45309; /* yellow-700 */
+            font-weight: 600;
+        }
+        /* Adiciona sombra ao texto para legibilidade sobre a imagem */
+        .text-shadow {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Estilos para o Modal de Opções de Pizza */
+        /* Este é o "botão" customizado que parece um rádio */
+        .form-radio-label {
+            display: flex; /* Garante alinhamento */
+            flex-direction: column; /* Coloca preço abaixo do nome */
+            justify-content: center; /* Alinha no centro verticalmente */
+            align-items: center; /* Alinha no centro horizontalmente */
+            padding: 0.75rem 0.5rem; /* Padding (espaçamento interno) */
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+            border-radius: 0.375rem; /* rounded-md */
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-align: center;
+            min-height: 70px; /* Altura mínima para alinhamento */
+        }
+
+        /* Estilo do botão quando o rádio está selecionado */
+        input[type="radio"]:checked + .form-radio-label {
+            border-color: #f59e0b; /* border-yellow-500 */
+            background-color: #fffbeb; /* bg-yellow-50 */
+            box-shadow: 0 0 0 2px #f59e0b; /* Anel de foco */
+        }
+
+        /* Esconde o rádio original */
+        input[type="radio"].form-radio-input {
+            display: none;
+        }
+
+        /* Nome principal da opção (ex: "P", "Catupiry") */
+        .form-radio-label .option-name {
+            font-weight: 600; /* font-semibold */
+            color: #1f2937; /* text-gray-800 */
+            font-size: 1rem; /* text-base */
+            line-height: 1.2;
+        }
+
+        /* Subtexto (ex: "R$ 28,00", "Grátis") */
+        .form-radio-label .option-subtext {
+            font-size: 0.875rem; /* text-sm */
+            color: #4b5563; /* text-gray-600 */
+            line-height: 1.2;
+        }
+
+        /* Ajuste para o preço selecionado ficar mais destacado */
+        input[type="radio"]:checked + .form-radio-label .option-subtext {
+            color: #b45309; /* text-yellow-700 */
+            font-weight: 500;
+        }
+
+        /* Estilo para barra de rolagem da navegação (apenas Webkit - Chrome/Safari) */
+        #category-nav div::-webkit-scrollbar {
+             height: 4px;
+        }
+        #category-nav div::-webkit-scrollbar-thumb {
+            background-color: #fbbf24; /* yellow-400 */
+            border-radius: 10px;
+        }
+        #category-nav div::-webkit-scrollbar-track {
+            background-color: #f3f4f6; /* gray-100 */
+        }
+
+        /* Para Firefox (requer versão 64+) */
+        #category-nav div {
+            scrollbar-width: thin;
+            scrollbar-color: #fbbf24 #f3f4f6;
+        }
+        
+        /* Estilos para Checkboxes do Açaí */
+        .acai-checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+            border-radius: 0.375rem; /* rounded-md */
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .acai-checkbox-label:hover {
+             background-color: #f9fafb; /* bg-gray-50 */
+        }
+        
+        input[type="checkbox"].acai-checkbox-input:checked + .acai-checkbox-label {
+             border-color: #f59e0b; /* border-yellow-500 */
+             background-color: #fffbeb; /* bg-yellow-50 */
+        }
+        
+        input[type="checkbox"].acai-checkbox-input {
+             display: none; /* Esconde o checkbox original */
+        }
+        
+        .acai-checkbox-custom {
+            width: 1.25rem; /* w-5 */
+            height: 1.25rem; /* h-5 */
+            border: 2px solid #9ca3af; /* border-gray-400 */
+            border-radius: 0.25rem; /* rounded */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem; /* mr-3 */
+            flex-shrink: 0;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        input[type="checkbox"].acai-checkbox-input:checked + .acai-checkbox-label .acai-checkbox-custom {
+            background-color: #f59e0b; /* bg-yellow-500 */
+            border-color: #f59e0b; /* border-yellow-500 */
+        }
+        
+        .acai-checkbox-custom::after {
+            content: '✔';
+            color: white;
+            font-size: 0.875rem; /* text-sm */
+            font-weight: bold;
+            display: none;
+        }
+        
+        input[type="checkbox"].acai-checkbox-input:checked + .acai-checkbox-label .acai-checkbox-custom::after {
+            display: block;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100" data-loja-id="1">
+
+    <div id="app" class="container mx-auto max-w-4xl p-4">
+
+        <header class="text-center bg-white rounded-lg shadow-md mb-8 p-4">
+            <img
+                src="https://i.imgur.com/nonHAy2.jpeg"
+                alt="Logo Point da Pizza - O seu point favorito!"
+                class="mx-auto max-w-full h-auto rounded-md"
+                style="max-height: 300px;"
+                onerror="this.onerror=null; this.src='https://placehold.co/600x300/f59e0b/ffffff?text=Point+da+Pizza';"
+            >
+        </header>
+        <nav id="category-nav" class="bg-white rounded-lg shadow-md p-4 mb-8 sticky top-4 z-20">
+            <div class="overflow-x-auto whitespace-nowrap">
+                <ul class="flex justify-start sm:justify-around" id="category-list">
+                    </ul>
+            </div>
+        </nav>
+        <main id="menu-page" class="">
+            <div class="w-full">
+                <h2 id="category-title" class="text-3xl font-bold text-gray-800 mb-6"></h2>
+                <div id="menu-items" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    </div>
+            </div>
+        </main><section id="checkout-page" class="hidden bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2">Finalizar Pedido</h2>
+            
+            <div id="cart-summary">
+                <h3 class="text-xl font-semibold mb-2">Seu Carrinho:</h3>
+                <div id="cart-items-list" class="space-y-2 mb-4">
+                    </div>
+                <p class="text-right font-bold text-xl" id="cart-total">Total: R$ 0,00</p>
+            </div>
+
+            <form id="order-form" class="mt-6 space-y-4">
+                
+                <h3 class="text-xl font-semibold border-t pt-4">Seus Dados</h3>
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Seu Nome</label>
+                    <input type="text" id="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="Digite seu nome">
+                </div>
+
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700">Telefone (WhatsApp)</label>
+                    <input type="tel" id="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="(86) 99999-8888">
+                </div>
+                <h3 class="text-xl font-semibold border-t pt-4">Informações de Entrega</h3>
+                <div>
+                    <label for="address" class="block text-sm font-medium text-gray-700">Endereço (Rua, Av.)</label>
+                    <input type="text" id="address" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="Ex: Rua Principal">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="number" class="block text-sm font-medium text-gray-700">Número</label>
+                        <input type="text" id="number" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="Ex: 123">
+                    </div>
+                    <div>
+                        <label for="neighborhood" class="block text-sm font-medium text-gray-700">Bairro</label>
+                        <input type="text" id="neighborhood" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="Ex: Centro">
+                    </div>
+                </div>
+                <div>
+                    <label for="reference" class="block text-sm font-medium text-gray-700">Complemento / Referência</label>
+                    <input type="text" id="reference" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2" placeholder="Ex: Apt 101, Próximo ao mercado">
+                </div>
+
+                <h3 class="text-xl font-semibold border-t pt-4">Forma de Pagamento</h3>
+                <fieldset class="space-y-3">
+                    <legend class="sr-only">Escolha a forma de pagamento</legend>
+                    
+                    <div>
+                        <input type="radio" id="payment-pix" name="payment" value="PIX" class="sr-only peer" required>
+                        <label for="payment-pix" class="flex items-center justify-between p-4 rounded-lg border border-gray-300 cursor-pointer transition hover:bg-gray-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:ring-2 peer-checked:ring-yellow-500">
+                            <span class="font-medium text-gray-700">PIX</span>
+                            <svg class="w-6 h-6 text-gray-500 peer-checked:text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5a1.875 1.875 0 0 1-1.875-1.875v-4.5ZM13.5 4.875c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 0 1 13.5 9.375v-4.5ZM13.5 14.625c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5a1.875 1.875 0 0 1-1.875-1.875v-4.5Z" />
+                            </svg>
+                        </label>
+                    </div>
+
+                    <div>
+                        <input type="radio" id="payment-credit" name="payment" value="Cartão de Crédito" class="sr-only peer">
+                        <label for="payment-credit" class="flex items-center justify-between p-4 rounded-lg border border-gray-300 cursor-pointer transition hover:bg-gray-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:ring-2 peer-checked:ring-yellow-500">
+                            <span class="font-medium text-gray-700">Cartão de Crédito (via maquininha)</span>
+                            <svg class="w-6 h-6 text-gray-500 peer-checked:text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h6m-6 2.25h6M12 9v10.5m3-10.5v10.5m3-10.5v10.5M3.75 9h16.5M3.75 18h16.5M3.75 13.5h16.5M21 8.25V19.5a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 19.5V8.25A2.25 2.25 0 0 1 5.25 6H18.75a2.25 2.25 0 0 1 2.25 2.25Z" />
+                            </svg>
+                        </label>
+                    </div>
+
+                    <div>
+                        <input type="radio" id="payment-debit" name="payment" value="Cartão de Débito" class="sr-only peer">
+                        <label for="payment-debit" class="flex items-center justify-between p-4 rounded-lg border border-gray-300 cursor-pointer transition hover:bg-gray-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:ring-2 peer-checked:ring-yellow-500">
+                            <span class="font-medium text-gray-700">Cartão de Débito (via maquininha)</span>
+                             <svg class="w-6 h-6 text-gray-500 peer-checked:text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h6m-6 2.25h6M12 9v10.5m3-10.5v10.5m3-10.5v10.5M3.75 9h16.5M3.75 18h16.5M3.75 13.5h16.5M21 8.25V19.5a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 19.5V8.25A2.25 2.25 0 0 1 5.25 6H18.75a2.25 2.25 0 0 1 2.25 2.25Z" />
+                            </svg>
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <input type="radio" id="payment-money" name="payment" value="Dinheiro" class="sr-only peer">
+                        <label for="payment-money" class="flex items-center justify-between p-4 rounded-lg border border-gray-300 cursor-pointer transition hover:bg-gray-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:ring-2 peer-checked:ring-yellow-500">
+                            <span class="font-medium text-gray-700">Dinheiro</span>
+                            <svg class="w-6 h-6 text-gray-500 peer-checked:text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.75A.75.75 0 0 1 3 4.5h.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 15.66c.433-.433.79-1.043.988-1.756a4.5 4.5 0 0 0-.988-5.844c-.198-.713-.555-1.323-.988-1.756m-5.844 0c-.433.433-.79 1.043-.988 1.756a4.5 4.5 0 0 0 .988 5.844c.198.713.555 1.323.988 1.756m5.844-5.844a4.5 4.5 0 0 1-5.844 0m5.844 0a4.5 4.5 0 0 0-5.844 0M12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                            </svg>
+                        </label>
+                    </div>
+
+                    <input type="number" step="0.01" min="0" id="money-change" placeholder="Precisa de troco para quanto? Ex: 50.00" class="hidden mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2">
+                </fieldset>
+
+                <h3 class="text-xl font-semibold border-t pt-4">Observações (do Pedido)</h3>
+                <div>
+                    <label for="observations" class="sr-only">Observações do pedido</label>
+                    <textarea id="observations" rows="3" placeholder="Ex: Tirar a cebola, ponto da carne mal passado, etc." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2"></textarea>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                    <button type="button" id="back-to-menu-btn" class="w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">Voltar ao Cardápio</button>
+                    <button type="submit" class="w-full justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-green-700">Enviar Pedido</button>
+                </div>
+            </form>
+        </section>
+        <footer class="mt-12 pt-8 border-t border-gray-200">
+            <div class="max-w-2xl mx-auto text-center">
+                <div class="mt-8">
+                    <p class="text-gray-600 font-semibold mb-3">Siga-nos!</p>
+                    <div class="flex justify-center space-x-4">
+                        <a href="https://www.instagram.com/pointdapizzama/"
+                            target="_blank" rel="noopener noreferrer"
+                            class="text-gray-500 hover:text-pink-600 transition"
+                            aria-label="Instagram"
+                        >
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM12 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-6">POINT DA PIZZA &copy; 2025</p>
+                </div>
+            </div>
+        </footer>
+        <div id="cart-fab" class="hidden fixed bottom-6 right-6 z-30">
+            <button id="open-checkout-btn" aria-label="Abrir carrinho" class="bg-yellow-500 text-white rounded-full p-4 shadow-lg hover:bg-yellow-600 transition relative">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">0</span>
+            </button>
+        </div>
+        
+        <div id="my-orders-fab" class="fixed bottom-24 right-6 z-30 hidden">
+            <button id="open-my-orders-btn" aria-label="Abrir meus pedidos" class="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition">
+                <img src="https://i.ibb.co/FL208Mqj/output-onlinegiftools-com.gif" alt="Meus Pedidos" class="h-8 w-8">
+            </button>
+        </div>
+
+        </div> 
+        <div id="options-modal" role="dialog" aria-modal="true" aria-labelledby="modal-item-name" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <h3 class="text-2xl font-bold mb-4" id="modal-item-name"></h3>
+                <p class="text-gray-600 mb-4">Por favor, selecione uma opção:</p>
+                <form id="options-form" class="space-y-3">
+                    <fieldset>
+                        <legend class="sr-only">Opções disponíveis</legend>
+                        <div id="modal-options-list" class="max-h-60 overflow-y-auto space-y-2">
+                            </div>
+                    </fieldset>
+                    <div id="modal-error" class="text-red-500 text-sm hidden">Por favor, selecione uma opção.</div>
+                    <div class="flex gap-4 pt-4 border-t mt-4">
+                        <button type="button" id="modal-cancel-btn" class="w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancelar</button>
+                        <button type="submit" id="modal-confirm-btn" class="w-full justify-center rounded-md border border-transparent bg-yellow-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-yellow-600">Adicionar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="pizza-options-modal" role="dialog" aria-modal="true" aria-labelledby="pizza-modal-item-name" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl my-8">
+            <form id="pizza-options-form">
+                <div class="p-6">
+                    <h3 class="text-2xl font-bold mb-4" id="pizza-modal-item-name"></h3>
+
+                    <fieldset class="mb-4">
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">1. Escolha o Tamanho</legend>
+                        <div id="pizza-modal-sizes" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            </div>
+                    </fieldset>
+
+                    <fieldset class="mb-4">
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">2. Escolha a Borda</legend>
+                        <div id="pizza-modal-borders" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            </div>
+                    </fieldset>
+
+                    <fieldset id="pizza-flavor-section" class="mb-4 hidden">
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">3. Tipo de Sabor</legend>
+                        <div id="pizza-modal-flavor-type" class="grid grid-cols-2 gap-3 mb-4">
+                            </div>
+
+                        <div id="pizza-second-flavor-section" class="hidden mt-4">
+                            <label for="pizza-modal-second-flavor" class="block text-sm font-medium text-gray-700 mb-2">Escolha o 2º Sabor:</label>
+                            <select id="pizza-modal-second-flavor" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2 bg-white">
+                                </select>
+                        </div>
+                    </fieldset>
+
+                    <div id="pizza-modal-error" class="text-red-500 text-sm hidden mt-2"></div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-50 p-4 rounded-b-lg gap-4">
+                    <span id="pizza-modal-total-price" class="text-2xl font-bold text-gray-800 order-1 sm:order-none">R$ 0,00</span>
+                    <div class="flex gap-4 w-full sm:w-auto order-2 sm:order-none">
+                        <button type="button" id="pizza-modal-cancel-btn" class="w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancelar</button>
+                        <button type="submit" id="pizza-modal-confirm-btn" class="w-full justify-center rounded-md border border-transparent bg-yellow-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-yellow-600">Adicionar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="acai-options-modal" role="dialog" aria-modal="true" aria-labelledby="acai-modal-item-name" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl my-8">
+            <form id="acai-options-form">
+                <div class="p-6 border-b">
+                    <h3 class="text-2xl font-bold" id="acai-modal-item-name"></h3>
+                    <p class="text-gray-600">Monte seu açaí! As opções são gratuitas.</p>
+                </div>
+                
+                <div class="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+                    <fieldset>
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">Cremes</legend>
+                        <div id="acai-cremes-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">Frutas</legend>
+                        <div id="acai-frutas-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            </div>
+                    </fieldset>
+                    
+                    <fieldset>
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">Coberturas</legend>
+                        <div id="acai-coberturas-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend class="text-lg font-semibold text-gray-800 mb-3">Complementos</legend>
+                        <div id="acai-complementos-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            </div>
+                    </fieldset>
+                    
+                    <fieldset>
+                         <legend class="text-lg font-semibold text-gray-800 mb-3">Observações (Opcional)</legend>
+                         <div>
+                            <label for="acai-observations" class="sr-only">Observações para o açaí</label>
+                            <textarea id="acai-observations" rows="2" placeholder="Ex: Pouca granola, sem banana..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm p-2"></textarea>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-50 p-4 rounded-b-lg gap-4">
+                    <span id="acai-modal-total-price" class="text-2xl font-bold text-gray-800 order-1 sm:order-none">R$ 0,00</span>
+                    <div class="flex gap-4 w-full sm:w-auto order-2 sm:order-none">
+                        <button type="button" id="acai-modal-cancel-btn" class="w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancelar</button>
+                        <button type="submit" id="acai-modal-confirm-btn" class="w-full justify-center rounded-md border border-transparent bg-yellow-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-yellow-600">Adicionar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="alert-modal" role="alertdialog" aria-modal="true" aria-labelledby="alert-title" aria-describedby="alert-message" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[100] p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm">
+            <div class="p-6 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+                    <svg class="h-6 w-6 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="alert-title">Atenção</h3>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500" id="alert-message">Mensagem de alerta.</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
+                <button type="button" id="alert-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 sm:ml-3 sm:w-auto sm:text-sm">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="success-modal" role="alertdialog" aria-modal="true" aria-labelledby="success-title" aria-describedby="success-message" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[100] p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm">
+            <div class="p-6 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg class="h-6 w-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="success-title">Sucesso!</h3>
+                 <div class="mt-2">
+                    <p class="text-sm text-gray-500" id="success-message">Operação realizada com sucesso.</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-lg">
+                <button type="button" id="success-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="meus-pedidos-modal" role="dialog" aria-modal="true" aria-labelledby="my-orders-title" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg my-8">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-2xl font-bold text-gray-800" id="my-orders-title">Meus Pedidos</h3>
+                <button type="button" id="my-orders-close-btn" class="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="meus-pedidos-list" class="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-b-lg text-center">
+                <p class="text-sm text-gray-500">O status é atualizado em tempo real.</p>
+            </div>
+        </div>
+    </div><script type="module">
+
+        // --- Configuração Principal ---
+        // ATUALIZAÇÃO 1: Conectar ao servidor online
+        const socket = io('https://meu-delivery-app.onrender.com');
+        // -----------------------------
+
+
+        // ==========================================================
+        // ===== TABELAS DE PREÇOS (PIZZA) =====
+        // ==========================================================
+        const pizzaPrices = {
+            "tradicional": { "P": 28.00, "M": 38.00, "G": 50.00, "GG": 60.00 },
+            "especial":    { "P": 30.00, "M": 40.00, "G": 55.00, "GG": 65.00 }
+        };
+        const borderPrices = {
+            "none":      { "P": 0.00, "M": 0.00, "G": 0.00, "GG": 0.00 },
+            "catupiry":  { "P": 6.00, "M": 8.00, "G": 10.00, "GG": 12.00 },
+            "cheddar":   { "P": 6.00, "M": 8.00, "G": 10.00, "GG": 12.00 },
+            "chocolate": { "P": 6.00, "M": 8.00, "G": 10.00, "GG": 12.00 }
+        };
+        const borderNames = { "none": "Sem Borda", "catupiry": "Catupiry", "cheddar": "Cheddar", "chocolate": "Chocolate" };
+        const sizeNames = { "P": "Pequena (P)", "M": "Média (M)", "G": "Grande (G)", "GG": "Gigante (GG)" };
+
+        // ==========================================================
+        // ===== DADOS DAS OPÇÕES DE AÇAÍ (NOVO) =====
+        // ==========================================================
+        const acaiOptions = {
+            cremes: ["Ninho"],
+            frutas: ["Morango", "Banana", "Kiwi", "Uva"],
+            coberturas: ["Chocolate", "Leite Condensado", "Morango"],
+            complementos: ["Amendoim", "Cereja", "M&M", "Paçoquinha", "Granola", "Flocos de Aveia", "Leite em Pó", "Colorete", "Farinha de Tapioca", "Gotas de Chocolate", "Bis"]
+        };
+
+
+        // ==========================================================
+        // ===== DADOS DO CARDÁPIO =====
+        // ==========================================================
+        const categories = ["Hambúrgueres", "Pastéis", "Pizzas", "Petiscos", "Tapiocas", "Açaí", "Bebidas"];
+        const menuData = [
+             // === HAMBÚRGUERES ===
+             { id: 1, name: "X-hamburguer", description: "Pão, carne, presunto e salada.", price: 12.00, image: "https://i.imgur.com/KkAi6ih.jpeg", category: "Hambúrgueres" },
+             { id: 2, name: "Frango (Hambúrguer)", description: "Pão, frango desfiado, queijo e salada.", price: 13.00, image: "https://i.imgur.com/TZiX0V6.jpeg", category: "Hambúrgueres" },
+             { id: 3, name: "Calabresa (Hambúrguer)", description: "Pão, queijo, presunto, calabresa e salada.", price: 14.00, image: "https://i.imgur.com/KW5oYSf.jpeg", category: "Hambúrgueres" },
+             { id: 4, name: "Bauru", description: "Pão, carne, queijo, bacon, ovo e salada.", price: 14.00, image: "https://i.imgur.com/CiLraFk.jpeg", category: "Hambúrgueres" },
+             { id: 5, name: "Calabresa com Cheddar", description: "Pão, carne, queijo, calabresa, ovo e salada.", price: 15.00, image: "https://i.imgur.com/OPCR1aV.jpeg", category: "Hambúrgueres" },
+             { id: 6, name: "Carne de Sol (Hambúrguer)", description: "Pão, carne de sol desfiada, queijo, presunto e salada.", price: 16.00, image: "https://i.imgur.com/Y6eXupE.jpeg", category: "Hambúrgueres" },
+             { id: 7, name: "X-Tudo", description: "Pão, carne, calabresa, ovo, presunto, milho, batata palha e salada.", price: 17.00, image: "https://i.imgur.com/2j7WAPe.jpeg", category: "Hambúrgueres" },
+             { id: 8, name: "Tanto Faz", description: "Pão, 2 carnes, bacon, ovo, presunto, milho, batata palha e salada.", price: 20.00, image: "https://i.imgur.com/4J426E8.jpeg", category: "Hambúrgueres" },
+             { id: 9, name: "Universitário", description: "Pão, 2 carnes, calabresa, 2 presuntos, 2 queijos, bacon, ovo, batata palha e salada.", price: 21.00, image: "https://i.imgur.com/uhiYND4.jpeg", category: "Hambúrgueres" },
+             { id: 10, name: "Centro (Artesanal)", description: "Pão, blend 120g, queijo, bacon e salada.", price: 20.00, image: "https://i.imgur.com/2QMWQ3G.jpeg", category: "Hambúrgueres" },
+             { id: 11, name: "Forquilha (Artesanal)", description: "Pão, blend 120g, 2 queijos, bacon, batata palha e salada.", price: 21.00, image: "https://i.imgur.com/6Y1laP4.jpeg", category: "Hambúrgueres" },
+             { id: 12, name: "Alto Bela Vista (Artesanal)", description: "Pão, blend 120g, queijo, presunto, bacon, ovo e salada.", price: 22.00, image: "https://i.imgur.com/csHLGr1.jpeg", category: "Hambúrgueres" },
+             { id: 13, name: "São Miguel (Artesanal)", description: "Pão, blend de carne 120g, queijo, presunto, cream cheese e salada.", price: 23.00, image: "https://i.imgur.com/HZxZcyu.jpeg", category: "Hambúrgueres" },
+             { id: 14, name: "Coheb (Artesanal)", description: "Pão, blend 120g, queijo prato, presunto e geleia de pimenta.", price: 24.00, image: "https://i.imgur.com/ZlNrJ5p.jpeg", category: "Hambúrgueres" },
+             { id: 15, name: "Matadouro (Artesanal)", description: "Pão, blend 120g, queijo prato, cebola caramelizada, presunto, ovo e salada.", price: 25.00, image: "https://i.imgur.com/98GaKUW.jpeg", category: "Hambúrgueres" },
+             { id: 16, name: "Angelim (Artesanal)", description: "Pão, blend 120g, queijo prato, bacon, ovo, geleia de pimenta e salada.", price: 27.00, image: "https://i.imgur.com/IWMJ3DD.jpeg", category: "Hambúrgueres" },
+             { id: 17, name: "Beira Rio (Artesanal)", description: "Pão, blend 120g, queijo, calabresa, bacon, cream cheese e salada.", price: 28.00, image: "https://i.imgur.com/tbAE2cj.jpeg", category: "Hambúrgueres" },
+             { id: 18, name: "Point da Casa (Artesanal)", description: "Pão, 2 blends 120g, 2 queijos prato, cebola caramelizada, presunto, ovo, bacon, cream cheese e salada.", price: 30.00, image: "https://i.imgur.com/2dknzrs.jpeg", category: "Hambúrgueres" },
+
+             // === PASTÉIS ===
+             { id: 19, name: "Pastel de Frango", description: "Frango desfiado.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 20, name: "Pastel Pizza", description: "Queijo, presunto e orégano.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 21, name: "Pastel de Queijo", description: "Queijo coalho.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 22, name: "Pastel Misto", description: "Carne, frango, queijo, presunto e orégano.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 23, name: "Pastel de Calabresa", description: "Queijo, calabresa e orégano.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 24, name: "Pastel de Carne de Sol", description: "Queijo mussarela, carne de sol desfiada e orégano.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 25, name: "Pastel de Frango com Catupiry", description: "Queijo coalho, frango desfiado e Catupiry.", price: 10.00, image: "", category: "Pastéis" },
+             { id: 26, name: "Pastel de Carne de Sol com Cheddar", description: "Queijo, carne de sol desfiada, cheddar e orégano.", price: 10.00, image: "", category: "Pastéis" },// === PIZZAS ===
+             { id: 27, name: "Pizza de Frango", description: "Molho especial, mussarela, frango desfiado, azeitona, cebola, tomate e orégano.", category: "Pizzas", type: "tradicional" },
+             { id: 28, name: "Pizza de Calabresa", description: "Molho especial, mussarela, calabresa, tomate e orégano.", category: "Pizzas", type: "tradicional" },
+             { id: 29, name: "Pizza de Mussarela", description: "Molho especial, mussarela, azeitona, tomate e orégano.", category: "Pizzas", type: "tradicional" },
+             { id: 30, name: "Pizza Napolitana", description: "Molho especial, mussarela, presunto, cebola, tomate e orégano.", category: "Pizzas", type: "tradicional" },
+             { id: 31, name: "Pizza Margherita", description: "Molho especial, mussarela, tomate picado, manjericão, cebola e orégano.", category: "Pizzas", type: "tradicional" },
+             { id: 32, name: "Pizza Mista", description: "Molho especial, mussarela, frango desfiado, carne, batata palha, presunto, milho, azeitona e orégano.", category: "Pizzas", type: "especial" },
+             { id: 33, name: "Pizza 4 Queijos", description: "Molho especial, mussarela, parmesão, cheddar, Catupiry, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 34, name: "Pizza de Camarão", description: "Molho especial, mussarela, camarão, cream cheese, azeitona, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 35, name: "Pizza Baiana", description: "Molho especial, mussarela, bacon, pimenta calabresa, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 36, name: "Pizza Mexicana", description: "Molho especial, mussarela, calabresa, bacon, milho refogado, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 37, name: "Pizza Portuguesa", description: "Molho especial da casa, mussarela, calabresa, azeitona, tomate, ovo, presunto e orégano.", category: "Pizzas", type: "especial" },
+             { id: 38, name: "Pizza Frango Chip", description: "Molho especial, mussarela, milho, frango, creme de leite, Catupiry e batata palha.", category: "Pizzas", type: "especial" },
+             { id: 39, name: "Pizza Carne de Sol com Batata Palha", description: "Molho especial, mussarela, carne de sol desfiada, cebola, batata palha e orégano.", category: "Pizzas", type: "especial" },
+             { id: 40, name: "Pizza Frango Especial", description: "Molho especial, mussarela, frango, bacon, presunto, azeitona e orégano.", category: "Pizzas", type: "especial" },
+             { id: 41, name: "Pizza Lombo Canadense", description: "Molho especial barbecue, mussarela, lombo canadense, azeitona e batata palha.", category: "Pizzas", type: "especial" },
+             { id: 42, name: "Pizza Nordestina", description: "Molho especial, mussarela, carne de sol desfiada, cebola, azeitona e Catupiry.", category: "Pizzas", type: "especial" },
+             { id: 43, name: "Pizza Baiana-Subana", description: "Molho especial, mussarela, frango desfiado, bacon, presunto, tomate, azeitona e orégano.", category: "Pizzas", type: "especial" },
+             { id: 44, name: "Pizza Moda da Casa", description: "Molho especial, mussarela, carne de sol desfiada, presunto, calabresa, bacon, azeitona, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 45, name: "Pizza Miguel Alves", description: "Molho especial, mussarela, frango desfiado, milho, azeitona, Catupiry, bacon, batata palha e orégano.", category: "Pizzas", type: "especial" },
+             { id: 46, name: "Pizza Frango com Catupiry (Especial)", description: "Molho especial, mussarela, frango desfiado, Catupiry, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 47, name: "Pizza São Miguel Arcanjo", description: "Molho especial, mussarela, carne de sol desfiada, geleia de pimenta, cream cheese, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 48, name: "Pizza Carne de Sol com Banana", description: "Molho especial, mussarela, carne de sol desfiada, pimenta, requeijão, banana em rodelas, azeitona e orégano.", category: "Pizzas", type: "especial" },
+             { id: 49, name: "Pizza Calabresa com Cheddar (Especial)", description: "Molho especial, mussarela, calabresa, cheddar, cebola e orégano.", category: "Pizzas", type: "especial" },
+             { id: 50, name: "Pizza de Banana", description: "Mussarela, leite condensado, rodelas de banana e canela.", category: "Pizzas", type: "especial" },
+             { id: 51, name: "Pizza de Nutella", description: "Mussarela e Nutella.", category: "Pizzas", type: "especial" },
+             { id: 52, name: "Pizza de Chocolate", description: "Mussarela, chocolate cremoso e granulado.", category: "Pizzas", type: "especial" },
+             { id: 53, name: "Pizza Romeu e Julieta", description: "Mussarela, goiabada e pedaços de queijo coalho.", category: "Pizzas", type: "especial" },
+
+             // === PETISCOS ===
+             { id: 54, name: "Batata Simples (500g)", description: "500 gramas de batata frita.", price: 15.00, image: "", category: "Petiscos" },
+             { id: 55, name: "Batata c/ Cheddar e Bacon (500g)", description: "500 gramas de batata frita com molho cheddar e bacon.", price: 20.00, image: "", category: "Petiscos" },
+             { id: 56, name: "Filé de Frango", description: "Filé de frango, batata frita, molho verde, vinagrete e farofa.", price: 35.00, image: "", category: "Petiscos" },
+             { id: 57, name: "Filé com Fritas", description: "Filé de carne, batata frita, molho verde, vinagrete e farofa.", price: 40.00, image: "", category: "Petiscos" },
+             { id: 58, name: "Trio Nordestino", description: "Filé de frango, filé de carne, calabresa, batata frita, molho verde, vinagrete e farofa.", price: 45.00, image: "", category: "Petiscos" },
+
+             // === TAPIOCAS ===
+             { id: 59, name: "Tapioca Pizza", description: "Queijo, presunto, orégano e salada.", price: 10.00, image: "", category: "Tapiocas" },
+             { id: 60, name: "Tapioca de Frango", description: "Frango desfiado e salada.", price: 10.00, image: "", category: "Tapiocas" },
+             { id: 61, name: "Tapioca de Carne Seca", description: "Carne seca desfiada e salada.", price: 10.00, image: "", category: "Tapiocas" },
+
+             // === AÇAÍ (DESCRIÇÃO ATUALIZADA) ===
+             { id: 62, name: "Açaí no Copo (200ml)", description: "Monte seu açaí com cremes, frutas, coberturas e complementos.", price: 13.99, image: "https://i.imgur.com/fpOEcjD.jpeg", category: "Açaí" },
+             { id: 63, name: "Açaí no Copo (300ml)", description: "Monte seu açaí com cremes, frutas, coberturas e complementos.", price: 16.99, image: "https://i.imgur.com/fpOEcjD.jpeg", category: "Açaí" },
+             { id: 64, name: "Açaí no Copo (400ml)", description: "Monte seu açaí com cremes, frutas, coberturas e complementos.", price: 19.99, image: "https://i.imgur.com/fpOEcjD.jpeg", category: "Açaí" },
+             { id: 65, name: "Açaí no Copo (500ml)", description: "Monte seu açaí com cremes, frutas, coberturas e complementos.", price: 23.99, image: "https://i.imgur.com/fpOEcjD.jpeg", category: "Açaí" },
+ 
+             // === BEBIDAS ===
+             { id: 66, name: "Água Mineral (sem gás)", description: "Garrafa de água mineral sem gás.", price: 4.00, image: "", category: "Bebidas" },
+             { id: 67, name: "Água Mineral (com gás)", description: "Garrafa de água mineral com gás.", price: 5.00, image: "", category: "Bebidas" },
+             { id: 68, name: "Suco 400 ml", description: "Copo de 400ml.", price: 7.00, image: "", category: "Bebidas", options: [ { name: "Cajá" }, { name: "Acerola" }, { name: "Goiaba" } ]},
+             { id: 69, name: "Suco 400 ml (Especial)", description: "Copo de 400ml.", price: 10.00, image: "", category: "Bebidas", options: [ { name: "Bacuri" }, { name: "Maracujá" }, { name: "Morango" } ]},
+             { id: 70, name: "Vitamina 400 ml", description: "Copo de 400ml.", price: 8.00, image: "", category: "Bebidas" },
+             { id: 71, name: "Vitamina 400 ml (Especial)", description: "Copo de 400ml.", price: 11.00, image: "", category: "Bebidas", options: [ { name: "Bacuri" }, { name: "Maracujá" }, { name: "Morango" } ]},
+             { id: 72, name: "Jarra de Suco", description: "Jarra de suco.", price: 18.00, image: "", category: "Bebidas", options: [ { name: "Cajá" }, { name: "Acerola" }, { name: "Goiaba" } ]},
+             { id: 73, name: "Jarra de Suco (Especial)", description: "Jarra de suco.", price: 20.00, image: "", category: "Bebidas", options: [ { name: "Bacuri" }, { name: "Maracujá" }, { name: "Morango" } ]},
+             { id: 74, name: "Refrigerante Lata", description: "Lata 350ml.", price: 6.00, image: "", category: "Bebidas", options: [ { name: "Coca-Cola" }, { name: "Guaraná" }, { name: "Fanta Laranja" } ]},
+             { id: 75, name: "Refrigerante 1L (Guaraná)", description: "Garrafa 1 Litro.", price: 9.00, image: "", category: "Bebidas" },
+             { id: 76, name: "Refrigerante 1L (Coca-Cola)", description: "Garrafa 1 Litro.", price: 10.00, image: "", category: "Bebidas" },
+             { id: 77, name: "Refrigerante 2L", description: "Garrafa 2 Litros.", price: 14.00, image: "", category: "Bebidas", options: [ { name: "Coca-Cola" }, { name: "Guaraná" }, { name: "Fanta Laranja" } ]},
+             { id: 78, name: "Água de Coco", description: "Copo/Garrafa de água de coco.", price: 7.00, image: "", category: "Bebidas" },
+             { id: 79, name: "Cajuína", description: "Garrafa de Cajuína.", price: 11.00, image: "", category: "Bebidas" },
+             { id: 80, name: "Energético", description: "Lata de energético.", price: 12.00, image: "", category: "Bebidas" },
+             { id: 81, name: "Piriguete", description: "Garrafa de Piriguete.", price: 12.00, image: "", category: "Bebidas" }
+        ];
+
+        // --- Variáveis Globais ---
+        let cart = {};
+        let currentPizzaSelection = {};
+        let currentAcaiSelection = {}; // NOVO
+
+        // ===== ELEMENTOS DO DOM (CACHE) =====
+        const appContainer = document.getElementById('app');
+        const pages = { menu: document.getElementById('menu-page'), checkout: document.getElementById('checkout-page') };
+        const categoryNav = document.getElementById('category-nav');
+        const categoryList = document.getElementById('category-list');
+        const categoryTitle = document.getElementById('category-title');
+        const menuItemsContainer = document.getElementById('menu-items');
+        const cartFab = document.getElementById('cart-fab');
+        const cartCount = document.getElementById('cart-count');
+        const cartItemsList = document.getElementById('cart-items-list');
+        const cartTotalEl = document.getElementById('cart-total');
+        const orderForm = document.getElementById('order-form');
+        const moneyChangeInput = document.getElementById('money-change');
+
+        // Modais
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const alertOkBtn = document.getElementById('alert-ok-btn');
+        const successModal = document.getElementById('success-modal');
+        const successMessage = document.getElementById('success-message');
+        const successOkBtn = document.getElementById('success-ok-btn');
+        const optionsModal = document.getElementById('options-modal');
+        const optionsForm = document.getElementById('options-form');
+        const modalItemName = document.getElementById('modal-item-name');
+        const modalOptionsList = document.getElementById('modal-options-list');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalError = document.getElementById('modal-error');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        
+        // Modal Pizza
+        const pizzaModal = document.getElementById('pizza-options-modal');
+        const pizzaForm = document.getElementById('pizza-options-form');
+        const pizzaItemName = document.getElementById('pizza-modal-item-name');
+        const pizzaSizesContainer = document.getElementById('pizza-modal-sizes');
+        const pizzaBordersContainer = document.getElementById('pizza-modal-borders');
+        const pizzaFlavorSection = document.getElementById('pizza-flavor-section');
+        const pizzaFlavorTypeContainer = document.getElementById('pizza-modal-flavor-type');
+        const pizzaSecondFlavorSection = document.getElementById('pizza-second-flavor-section');
+        const pizzaSecondFlavorSelect = document.getElementById('pizza-modal-second-flavor');
+        const pizzaTotalPrice = document.getElementById('pizza-modal-total-price');
+        const pizzaError = document.getElementById('pizza-modal-error');
+        const pizzaCancelBtn = document.getElementById('pizza-modal-cancel-btn');
+        
+        // Modal Açaí (NOVO)
+        const acaiModal = document.getElementById('acai-options-modal');
+        const acaiForm = document.getElementById('acai-options-form');
+        const acaiItemName = document.getElementById('acai-modal-item-name');
+        const acaiCremesList = document.getElementById('acai-cremes-list');
+        const acaiFrutasList = document.getElementById('acai-frutas-list');
+        const acaiCoberturasList = document.getElementById('acai-coberturas-list');
+        const acaiComplementosList = document.getElementById('acai-complementos-list');
+        const acaiObservations = document.getElementById('acai-observations');
+        const acaiTotalPrice = document.getElementById('acai-modal-total-price');
+        const acaiCancelBtn = document.getElementById('acai-modal-cancel-btn');
+        const acaiConfirmBtn = document.getElementById('acai-modal-confirm-btn');
+
+        // Modal "Meus Pedidos"
+        const myOrdersFab = document.getElementById('my-orders-fab');
+        const myOrdersModal = document.getElementById('meus-pedidos-modal');
+        const myOrdersList = document.getElementById('meus-pedidos-list');
+        const myOrdersCloseBtn = document.getElementById('my-orders-close-btn');
+        const myOrdersOpenBtn = document.getElementById('open-my-orders-btn');
+        
+        // ===== FUNÇÕES DE UTILIDADE =====
+        function formatCurrency(value) {
+            const numberValue = Number(value);
+            if (isNaN(numberValue)) { return "R$ --,--"; }
+            return numberValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+        
+        // ==========================================================
+        // ===== NOVAS FUNÇÕES: DADOS DO CLIENTE (LocalStorage) =====
+        // ==========================================================
+        const customerDataFields = ['name', 'phone', 'address', 'number', 'neighborhood', 'reference'];
+
+        function saveCustomerData() {
+            try {
+                const data = {};
+                customerDataFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        data[fieldId] = field.value.trim();
+                    }
+                });
+                localStorage.setItem('customerData', JSON.stringify(data));
+            } catch (error) {
+                console.warn("Não foi possível salvar os dados do cliente:", error);
+            }
+        }
+
+        function loadCustomerData() {
+            try {
+                const dataString = localStorage.getItem('customerData');
+                if (!dataString) return;
+                
+                const data = JSON.parse(dataString);
+                customerDataFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field && data[fieldId]) {
+                        field.value = data[fieldId];
+                    }
+                });
+            } catch (error) {
+                console.warn("Não foi possível carregar os dados do cliente:", error);
+            }
+        }
+
+        function getStoredCustomerPhone() {
+            try {
+                const dataString = localStorage.getItem('customerData');
+                if (!dataString) return null;
+                const data = JSON.parse(dataString);
+                return data.phone || null;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        // ==========================================================
+        // ===== NOVAS FUNÇÕES: ACOMPANHAMENTO DE PEDIDOS =====
+        // ==========================================================
+        
+        async function updateMyOrdersIconVisibility() {
+            const phone = getStoredCustomerPhone();
+            if (!phone) {
+                myOrdersFab.classList.add('hidden');
+                return;
+            }
+
+            try {
+                // --- ATUALIZAÇÃO 2: Conectar ao servidor online ---
+                const response = await fetch(`https://meu-delivery-app.onrender.com/meus-pedidos/${encodeURIComponent(phone)}`);
+                if (!response.ok) {
+                    myOrdersFab.classList.add('hidden');
+                    return;
+                }
+                const orders = await response.json();
+                
+                const hasActiveOrder = orders.some(order => 
+                    order.status === 'Pendente' || 
+                    order.status === 'Em Preparo' || 
+                    order.status === 'Saiu para Entrega'
+                );
+
+                if (hasActiveOrder) {
+                    myOrdersFab.classList.remove('hidden');
+                } else {
+                    myOrdersFab.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error("Erro ao verificar pedidos ativos:", error);
+                myOrdersFab.classList.add('hidden');
+            }
+        }
+        
+        async function openMyOrdersModal() {
+            const phone = getStoredCustomerPhone();
+            if (!phone) {
+                showAlert("Você precisa fazer pelo menos um pedido e salvar seus dados para ver seu histórico.");
+                return;
+            }
+            
+            myOrdersList.innerHTML = '<p class="text-gray-500 text-center">Buscando seus pedidos...</p>';
+            myOrdersModal.classList.remove('hidden');
+
+            try {
+                // --- ATUALIZAÇÃO 2 (Repetida): Conectar ao servidor online ---
+                const response = await fetch(`https://meu-delivery-app.onrender.com/meus-pedidos/${encodeURIComponent(phone)}`);
+                if (!response.ok) {
+                    throw new Error("Não foi possível buscar os pedidos.");
+                }
+                const orders = await response.json();
+                renderMyOrdersList(orders);
+            } catch (error) {
+                console.error("Erro ao buscar pedidos:", error);
+                myOrdersList.innerHTML = '<p class="text-red-500 text-center">Erro ao buscar seus pedidos. Tente novamente.</p>';
+            }
+        }
+
+        function renderMyOrdersList(orders) {
+            if (!orders || orders.length === 0) {
+                myOrdersList.innerHTML = '<p class="text-gray-500 text-center">Você ainda não tem pedidos no seu histórico.</p>';
+                return;
+            }
+
+            myOrdersList.innerHTML = '';
+            orders.forEach(order => {
+                const statusInfo = getStatusInfo(order.status);
+                
+                myOrdersList.innerHTML += `
+                    <div id="order-status-${order.id}" class="p-4 rounded-lg border ${statusInfo.borderColor} ${statusInfo.bgColor}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg ${statusInfo.textColor}">Pedido #${order.id}</span>
+                            <span class="font-semibold text-lg ${statusInfo.textColor}">${formatCurrency(order.valor_total)}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${statusInfo.icon}
+                            <span class="font-medium ${statusInfo.textColor}">${statusInfo.text}</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Feito às ${order.horario}</p>
+                    </div>
+                `;
+            });
+        }
+        
+        function getStatusInfo(status) {
+            switch (status) {
+                case 'Pendente':
+                    return {
+                        text: 'Aguardando confirmação',
+                        icon: '<svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                        textColor: 'text-gray-700',
+                        bgColor: 'bg-gray-50',
+                        borderColor: 'border-gray-300'
+                    };
+                case 'Em Preparo':
+                    return {
+                        text: 'Seu pedido está em preparo!',
+                        icon: '<svg class="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                        textColor: 'text-yellow-800',
+                        bgColor: 'bg-yellow-50',
+                        borderColor: 'border-yellow-300'
+                    };
+                case 'Saiu para Entrega':
+                    return {
+                        text: 'Seu pedido saiu para entrega!',
+                        icon: '<svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m12-1a1 1 0 001-1v-5a1 1 0 00-1-1h-2M9 12l2 2 4-4m5.618-4.384l-2.828 2.828" /></svg>',
+                        textColor: 'text-blue-800',
+                        bgColor: 'bg-blue-50',
+                        borderColor: 'border-blue-300'
+                    };
+                case 'Concluído':
+                    return {
+                        text: 'Pedido entregue. Bom apetite!',
+                        icon: '<svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>',
+                        textColor: 'text-green-800',
+                        bgColor: 'bg-green-50',
+                        borderColor: 'border-green-300'
+                    };
+                default:
+                    return { text: status, icon: '', textColor: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-300' };
+            }
+        }
+
+        // ===== FUNÇÕES DE ALERTA E NAVEGAÇÃO =====
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+            alertOkBtn.focus();
+        }
+        function closeAlert() { alertModal.classList.add('hidden'); }
+        function showSuccessAlert(message) {
+            successMessage.textContent = message;
+            successModal.classList.remove('hidden');
+            successOkBtn.focus();
+        }
+        function closeSuccessAlert() { successModal.classList.add('hidden'); }
+        function showPage(pageName) {
+            Object.values(pages).forEach(page => page.classList.add('hidden'));
+            if (pages[pageName]) { pages[pageName].classList.remove('hidden'); }
+
+            if (pageName === 'menu') {
+                appContainer.classList.add('max-w-4xl'); appContainer.classList.remove('max-w-2xl');
+                cartFab.classList.toggle('hidden', Object.keys(cart).length === 0);
+            } else {
+                appContainer.classList.add('max-w-2xl'); appContainer.classList.remove('max-w-4xl');
+                cartFab.classList.add('hidden');
+            }
+            window.scrollTo(0, 0);
+        }
+
+        // ===== FUNÇÕES DE RENDERIZAÇÃO DO CARDÁPIO =====
+        function renderCategoryNavigation() {
+            categoryList.innerHTML = '';
+            categories.forEach((category, index) => {
+                const li = document.createElement('li'); li.className = "py-1 inline-block"; // Ajustado para inline-block
+                const a = document.createElement('a'); a.href = '#'; a.textContent = category; a.dataset.category = category;
+                a.className = 'category-link inline-block whitespace-nowrap px-3 py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 transition-colors duration-200 text-sm sm:text-base';
+                if (index === 0) { a.classList.add('active'); }
+                li.appendChild(a); categoryList.appendChild(li);
+            });
+        }
+
+        function createMenuItemCard(item) {
+            let optionsHtml = ''; let priceHtml = '';
+            if (item.category === 'Pizzas' && item.type && pizzaPrices[item.type]) {
+                const startingPrice = pizzaPrices[item.type]["P"];
+                priceHtml = `A partir de ${formatCurrency(startingPrice)}`;
+            } else if (item.options && item.options.length > 0) {
+                const optionsString = item.options.map(opt => opt.name).join(', ');
+                optionsHtml = `<div class="mt-2 pt-2 border-t border-gray-100"><span class="text-xs font-semibold text-gray-700">Opções:</span><p class="text-xs text-gray-500">${optionsString}</p></div>`;
+                priceHtml = formatCurrency(item.price);
+            } else if (item.price !== undefined) {
+                priceHtml = formatCurrency(item.price);
+            } else { priceHtml = "Preço sob consulta"; }
+
+            let imageHtml = ''; 
+            
+            if (item.image) { 
+                let imageUrl = item.image;
+                if (imageUrl.includes("imgur.com") && !imageUrl.match(/\.(jpeg|jpg|gif|png)$/)) {
+                    const imgurIdMatch = imageUrl.match(/imgur\.com\/([a-zA-Z0-9]+)$/);
+                    if (imgurIdMatch && imgurIdMatch[1]) {
+                        imageUrl = `https://i.imgur.com/${imgurIdMatch[1]}.jpeg`; 
+                    }
+                }
+
+                imageHtml = `
+                    <img
+                        src="${imageUrl}"
+                        alt="${item.name}"
+                        class="w-full h-auto" 
+                        onerror="this.onerror=null; this.style.display='none'; console.error('Error loading image:', '${imageUrl}')"
+                    >
+                `; 
+            }
+
+            return `
+                <div class="bg-white rounded-lg shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-lg flex flex-col">
+                    ${imageHtml} <div class="p-4 flex flex-col justify-between flex-grow"> <div>
+                            <h3 class="text-lg sm:text-xl font-bold">${item.name}</h3>
+                            <p class="text-gray-600 text-sm mt-1 mb-2">${item.description || ''}</p>
+                            ${optionsHtml}
+                        </div>
+                        <div class="flex justify-between items-center mt-auto pt-2">
+                            <span class="text-base sm:text-lg font-semibold text-yellow-600">${priceHtml}</span>
+                            <button data-id="${item.id}" class="add-to-cart-btn bg-yellow-500 text-white font-semibold py-2 px-3 sm:px-4 rounded-lg hover:bg-yellow-600 transition text-sm sm:text-base">Adicionar</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+
+        function renderMenu(selectedCategory) {
+            menuItemsContainer.innerHTML = ''; categoryTitle.textContent = selectedCategory;
+            const itemsToRender = menuData.filter(item => item.category === selectedCategory);
+            if (itemsToRender.length === 0) { menuItemsContainer.innerHTML = `<p class="text-gray-500 md:col-span-2">Nenhum item encontrado.</p>`; return; }
+
+            if (selectedCategory === 'Pizzas') {
+                const tradicionais = itemsToRender.filter(item => item.type === 'tradicional');
+                const especiais = itemsToRender.filter(item => item.type === 'especial');
+                if (tradicionais.length > 0) {
+                    menuItemsContainer.innerHTML += `<h3 class="text-2xl font-semibold text-gray-700 mb-4 md:col-span-2 border-b pb-2">Tradicionais</h3>`;
+                    tradicionais.forEach(item => { menuItemsContainer.innerHTML += createMenuItemCard(item); });
+                }
+                if (especiais.length > 0) {
+                    const marginTop = tradicionais.length > 0 ? 'mt-8' : '';
+                    menuItemsContainer.innerHTML += `<h3 class="text-2xl font-semibold text-gray-700 ${marginTop} mb-4 md:col-span-2 border-b pb-2">Especiais & Doces</h3>`;
+                    especiais.forEach(item => { menuItemsContainer.innerHTML += createMenuItemCard(item); });
+                }
+            } else { itemsToRender.forEach(item => { menuItemsContainer.innerHTML += createMenuItemCard(item); }); }
+        }
+
+
+        // ===== FUNÇÕES DO CARRINHO =====
+        function updateCart() {
+            const totalItems = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
+            cartCount.textContent = totalItems;
+            if (!pages.menu.classList.contains('hidden')) { cartFab.classList.toggle('hidden', totalItems === 0); }
+            if (!pages.checkout.classList.contains('hidden')) { renderCheckout(); }
+        }
+        
+        function renderCheckout() {
+            cartItemsList.innerHTML = ''; let total = 0;
+            if (Object.keys(cart).length === 0) { cartItemsList.innerHTML = '<p class="text-gray-500">Carrinho vazio.</p>'; cartTotalEl.textContent = formatCurrency(0); return; }
+
+            const sortedCart = Object.values(cart).sort((a, b) => a.name.localeCompare(b.name));
+            sortedCart.forEach(item => {
+                const itemTotal = item.price * item.quantity; total += itemTotal;
+                let details = '';
+                
+                if (item.category === 'Pizzas') {
+                    details = `${sizeNames[item.size]}, ${borderNames[item.border]}`;
+                    if (item.flavorType === 'half') { details += `, 1/2 ${item.flavor2Name}`; }
+                } else if (item.selectedOption) { // Bebidas
+                    details = item.selectedOption;
+                } else if (item.category === 'Açaí' && item.selectedOptions) { // Açaí (NOVO)
+                    const opts = item.selectedOptions;
+                    let detailsParts = [];
+                    if (opts.cremes?.length) detailsParts.push(`Creme: ${opts.cremes.join(', ')}`);
+                    if (opts.frutas?.length) detailsParts.push(`Frutas: ${opts.frutas.join(', ')}`);
+                    if (opts.coberturas?.length) detailsParts.push(`Cobert.: ${opts.coberturas.join(', ')}`);
+                    if (opts.complementos?.length) detailsParts.push(`Compl.: ${opts.complementos.join(', ')}`);
+                    if (opts.observations) detailsParts.push(`Obs: ${opts.observations}`);
+                    
+                    details = detailsParts.join(' | ');
+                }
+
+
+                const itemHTML = `
+                    <div class="flex justify-between items-start border-b pb-2 gap-2">
+                        <div class="flex-grow">
+                            <p class="font-semibold">${item.name}</p>
+                            ${details ? `<p class="text-xs sm:text-sm text-gray-500">${details}</p>` : ''}
+                            <p class="text-xs sm:text-sm text-gray-500">Qtd: ${item.quantity} x ${formatCurrency(item.price)}</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="font-semibold text-sm sm:text-base">${formatCurrency(itemTotal)}</span>
+                            <button data-id="${item.id}" aria-label="Remover ${item.name}" class="remove-from-cart-btn text-red-500 hover:text-red-700 font-bold p-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                cartItemsList.innerHTML += itemHTML;
+            });
+            cartTotalEl.textContent = `Total: ${formatCurrency(total)}`;
+        }
+
+
+        // ===== FUNÇÕES DOS MODAIS =====
+        
+        // --- Modal de Opções (Bebidas) ---
+        function openOptionsModal(item) {
+            modalItemName.textContent = item.name; modalOptionsList.innerHTML = '';
+            item.options.forEach((option, index) => {
+                const optionId = `option-${item.id}-${index}`;
+                modalOptionsList.innerHTML += `
+                    <label for="${optionId}" class="flex items-center p-3 rounded-md border border-gray-200 hover:bg-gray-50 cursor-pointer has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50">
+                        <input type="radio" id="${optionId}" name="item_option" value="${option.name}" class="h-4 w-4 text-yellow-600 border-gray-300 focus:ring-yellow-500">
+                        <span class="ml-3 block text-sm font-medium text-gray-700">${option.name}</span>
+                    </label>`;
+            });
+            modalConfirmBtn.dataset.itemId = item.id;
+            modalError.classList.add('hidden');
+            optionsModal.classList.remove('hidden');
+        }
+        function closeOptionsModal() { optionsModal.classList.add('hidden'); optionsForm.reset(); }
+
+        // --- Modal de Opções (Pizza) ---
+        function openPizzaOptionsModal(item) {
+            currentPizzaSelection = { item: item, size: "P", border: "none", flavorType: "single", flavor2: null, price: 0 };
+            pizzaItemName.textContent = item.name;
+            renderPizzaSizes(item.type); renderPizzaBorders(); renderPizzaFlavorTypes();
+            updatePizzaFlavorSectionVisibility(); updatePizzaPrice();
+            pizzaSecondFlavorSection.classList.add('hidden'); pizzaError.classList.add('hidden');
+            pizzaModal.classList.remove('hidden');
+        }
+        function closePizzaModal() { pizzaModal.classList.add('hidden'); pizzaForm.reset(); }
+        function renderPizzaSizes(pizzaType) {
+            pizzaSizesContainer.innerHTML = ''; const defaultSize = "P"; currentPizzaSelection.size = defaultSize;
+            Object.keys(sizeNames).forEach((sizeKey) => {
+                const price = pizzaPrices[pizzaType]?.[sizeKey]; if (price === undefined) return;
+                const inputId = `size-${sizeKey}`;
+                pizzaSizesContainer.innerHTML += `<div><input type="radio" name="pizza_size" value="${sizeKey}" id="${inputId}" class="form-radio-input" ${sizeKey === defaultSize ? 'checked' : ''}><label for="${inputId}" class="form-radio-label"><span class="option-name">${sizeKey}</span><span class="option-subtext">${formatCurrency(price)}</span></label></div>`;
+            });
+        }
+        function renderPizzaBorders() {
+            pizzaBordersContainer.innerHTML = ''; const currentSize = currentPizzaSelection.size; const defaultBorder = "none"; currentPizzaSelection.border = defaultBorder;
+            Object.keys(borderNames).forEach((borderKey) => {
+                const price = borderPrices[borderKey]?.[currentSize]; if (price === undefined) return;
+                const priceText = price === 0 ? 'Grátis' : `+ ${formatCurrency(price)}`; const inputId = `border-${borderKey}`;
+                pizzaBordersContainer.innerHTML += `<div><input type="radio" name="pizza_border" value="${borderKey}" id="${inputId}" class="form-radio-input" ${borderKey === defaultBorder ? 'checked' : ''}><label for="${inputId}" class="form-radio-label"><span class="option-name">${borderNames[borderKey]}</span><span class="option-subtext">${priceText}</span></label></div>`;
+            });
+             updatePizzaPrice();
+        }
+        function renderPizzaFlavorTypes() {
+            pizzaFlavorTypeContainer.innerHTML = `<div><input type="radio" name="pizza_flavor_type" value="single" id="flavor-single" class="form-radio-input" checked><label for="flavor-single" class="form-radio-label"><span class="option-name">Sabor Único</span></label></div><div><input type="radio" name="pizza_flavor_type" value="half" id="flavor-half" class="form-radio-input"><label for="flavor-half" class="form-radio-label"><span class="option-name">Metade-Metade</span></label></div>`;
+        }
+        function updatePizzaFlavorSectionVisibility() {
+            const size = currentPizzaSelection.size; const flavorSingleInput = document.getElementById('flavor-single');
+            if (size === 'G' || size === 'GG') { pizzaFlavorSection.classList.remove('hidden'); }
+            else {
+                pizzaFlavorSection.classList.add('hidden');
+                 if (flavorSingleInput) { flavorSingleInput.checked = true; }
+                currentPizzaSelection.flavorType = 'single'; pizzaSecondFlavorSection.classList.add('hidden'); currentPizzaSelection.flavor2 = null;
+            }
+        }
+        function populateSecondFlavorOptions() {
+            pizzaSecondFlavorSelect.innerHTML = '<option value="">Selecione o 2º sabor...</option>'; const firstFlavor = currentPizzaSelection.item;
+            const compatibleFlavors = menuData.filter(item => item.category === 'Pizzas' && item.type === firstFlavor.type && item.id !== firstFlavor.id).sort((a,b) => a.name.localeCompare(b.name));
+            compatibleFlavors.forEach(item => { pizzaSecondFlavorSelect.innerHTML += `<option value="${item.id}">${item.name}</option>`; });
+        }
+        function updatePizzaPrice() {
+            const { item, size, border } = currentPizzaSelection;
+            if (!item || !size || !border || !item.type || !pizzaPrices[item.type] || !borderPrices[border]) { pizzaTotalPrice.textContent = formatCurrency(0); currentPizzaSelection.price = 0; return; }
+            const basePrice = pizzaPrices[item.type]?.[size] ?? 0; const borderPrice = borderPrices[border]?.[size] ?? 0; const totalPrice = basePrice + borderPrice;
+            currentPizzaSelection.price = totalPrice; pizzaTotalPrice.textContent = formatCurrency(totalPrice);
+        }
+        
+        // --- Modal de Opções (Açaí - NOVO) ---
+        function openAcaiOptionsModal(item) {
+            currentAcaiSelection = { item: item, price: item.price };
+            acaiItemName.textContent = item.name;
+            acaiTotalPrice.textContent = formatCurrency(item.price);
+            acaiConfirmBtn.dataset.itemId = item.id;
+            
+            renderAcaiOptions(); // Popula as checkboxes
+            
+            acaiForm.reset(); // Limpa o formulário e observações
+            acaiModal.classList.remove('hidden');
+        }
+        
+        function closeAcaiModal() {
+            acaiModal.classList.add('hidden');
+            acaiForm.reset();
+        }
+        
+        // Helper para criar listas de checkboxes
+        function createCheckboxList(container, items, groupName) {
+            container.innerHTML = ''; // Limpa a lista
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500">Nenhuma opção disponível.</p>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const inputId = `acai-${groupName}-${item.replace(/\s+/g, '-')}`;
+                container.innerHTML += `
+                    <div>
+                        <input type="checkbox" name="acai_${groupName}" value="${item}" id="${inputId}" class="acai-checkbox-input">
+                        <label for="${inputId}" class="acai-checkbox-label">
+                            <span class="acai-checkbox-custom"></span>
+                            <span class="text-sm font-medium text-gray-700">${item}</span>
+                        </label>
+                    </div>
+                `;
+            });
+        }
+        
+        // Renderiza todas as opções do modal de açaí
+        function renderAcaiOptions() {
+            createCheckboxList(acaiCremesList, acaiOptions.cremes, 'creme');
+            createCheckboxList(acaiFrutasList, acaiOptions.frutas, 'fruta');
+            createCheckboxList(acaiCoberturasList, acaiOptions.coberturas, 'cobertura');
+            createCheckboxList(acaiComplementosList, acaiOptions.complementos, 'complemento');
+        }
+
+
+        // ===== PROCESSAMENTO DE FORMULÁRIOS E EVENTOS =====
+        
+        // --- Eventos do Corpo da Página (Delegação) ---
+        document.body.addEventListener('click', (e) => {
+            // Adicionar ao carrinho (LÓGICA ATUALIZADA)
+            if (e.target.classList.contains('add-to-cart-btn')) {
+                const id = parseInt(e.target.dataset.id, 10); const item = menuData.find(i => i.id === id); if (!item) return;
+                
+                if (item.category === 'Pizzas') {
+                    openPizzaOptionsModal(item);
+                } else if (item.category === 'Açaí') { // NOVO
+                    openAcaiOptionsModal(item);
+                } else if (item.options && item.options.length > 0) {
+                    openOptionsModal(item);
+                } else {
+                    // Itens simples (Hambúrgueres, Pastéis, etc.)
+                    const cartId = `item-${item.id}`;
+                    if (cart[cartId]) { cart[cartId].quantity++; }
+                    else { cart[cartId] = { ...item, id: cartId, originalId: item.id, quantity: 1 }; }
+                    updateCart();
+                    showSuccessAlert(`${item.name} adicionado ao carrinho!`);
+                }
+            }
+            
+            // Remover do carrinho
+            if (e.target.closest('.remove-from-cart-btn')) {
+                 const button = e.target.closest('.remove-from-cart-btn'); const cartId = button.dataset.id;
+                 if (cart[cartId]) {
+                    const itemName = cart[cartId].name;
+                    // Para itens customizáveis (Açaí) ou itens com quantidade > 1
+                    if (cart[cartId].quantity > 1 && !cart[cartId].selectedOptions) {
+                        cart[cartId].quantity--;
+                    } else {
+                        delete cart[cartId]; // Remove Açaí customizado ou item com qtd 1
+                    }
+                    updateCart();
+                    showSuccessAlert(`${itemName} removido do carrinho.`);
+                 }
+            }
+        });
+
+        // --- Eventos da Navegação de Categorias ---
+        categoryNav.addEventListener('click', (e) => {
+            if (e.target.classList.contains('category-link')) {
+                e.preventDefault(); const selectedCategory = e.target.dataset.category;
+                showPage('menu'); renderMenu(selectedCategory);
+                categoryNav.querySelectorAll('.category-link').forEach(a => a.classList.remove('active')); e.target.classList.add('active');
+                e.target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        });
+        
+        // --- Eventos do Botão Flutuante ---
+        cartFab.addEventListener('click', () => { showPage('checkout'); renderCheckout(); });
+        
+        // --- Eventos da Página de Checkout ---
+        document.getElementById('back-to-menu-btn').addEventListener('click', () => { showPage('menu'); });
+         orderForm.querySelectorAll('input[name="payment"]').forEach(radio => {
+             radio.addEventListener('change', (e) => {
+                 const needsChange = e.target.value === 'Dinheiro'; moneyChangeInput.classList.toggle('hidden', !needsChange); moneyChangeInput.required = needsChange;
+                 if (!needsChange) moneyChangeInput.value = '';
+            });
+         });
+
+        // ==================================================================
+        // ===== FUNÇÃO DE SUBMISSÃO FINAL (ENVIAR PARA API REAL) =====
+        // ==================================================================
+        
+        /**
+         * Envia o pedido para o nosso "banco de dados" (back-end).
+         */
+        async function enviarPedidoParaAPI(pedidoData) {
+            
+            // --- ATUALIZAÇÃO 3: Conectar ao servidor online ---
+            const url = 'https://meu-delivery-app.onrender.com/pedidos';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(pedidoData),
+                });
+
+                if (!response.ok) {
+                    // Se o servidor responder com um erro (ex: 404, 500)
+                    throw new Error(`Erro de rede: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('Resposta do servidor:', result);
+                return { success: true, message: result.message, pedidoId: result.pedidoId };
+
+            } catch (error) {
+                console.error('Falha ao enviar pedido:', error);
+                // Retorna um objeto de erro para a função de submit
+                return { success: false, message: 'Não foi possível conectar ao servidor. Tente mais tarde.' };
+            }
+        }
+
+        // --- Novo Evento de Envio do Formulário (Interceptado) ---
+        // (Esta função agora chama a 'fetch' real)
+        orderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            
+            // --- 1. Validações ---
+            const paymentMethodEl = orderForm.querySelector('input[name="payment"]:checked');
+            if (!paymentMethodEl) { return showAlert('Selecione uma forma de pagamento.'); }
+            if (Object.keys(cart).length === 0) { return showAlert('Carrinho vazio.'); }
+            
+            const requiredFields = ['name', 'phone', 'address', 'number', 'neighborhood']; 
+
+            for (const fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) { field.focus(); return showAlert(`Preencha o campo "${field.labels[0]?.textContent || fieldId}".`); }
+            }
+            
+            saveCustomerData();
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Enviando...';
+
+            // --- 2. Coleta dos Dados ---
+            const lojaId = document.body.dataset.lojaId;
+            
+            const cliente = {
+                nome: document.getElementById('name').value.trim(),
+                telefone: document.getElementById('phone').value.trim(), 
+                endereco: document.getElementById('address').value.trim(),
+                numero: document.getElementById('number').value.trim(),
+                bairro: document.getElementById('neighborhood').value.trim(),
+                referencia: document.getElementById('reference').value.trim()
+            };
+            
+            const pagamento = {
+                metodo: paymentMethodEl.value,
+                troco_para: document.getElementById('money-change')?.value.trim() || null
+            };
+
+            const observacoes = document.getElementById('observations')?.value.trim() || null;
+
+            let valorTotal = 0;
+            const itens = Object.values(cart).map(item => {
+                valorTotal += item.price * item.quantity;
+                
+                // Pega detalhes da Pizza, Açaí ou Bebida
+                let detalhes = null;
+                if (item.category === 'Pizzas') {
+                    detalhes = `${sizeNames[item.size]}, ${borderNames[item.border]}`;
+                    if (item.flavorType === 'half') { detalhes += `, 1/2 ${item.flavor2Name}`; }
+                } else if (item.selectedOption) {
+                    detalhes = item.selectedOption;
+                } else if (item.selectedOptions) { // Açaí
+                    let parts = [];
+                    if(item.selectedOptions.cremes?.length) parts.push(`Cremes: ${item.selectedOptions.cremes.join(', ')}`);
+                    if(item.selectedOptions.frutas?.length) parts.push(`Frutas: ${item.selectedOptions.frutas.join(', ')}`);
+                    if(item.selectedOptions.coberturas?.length) parts.push(`Coberturas: ${item.selectedOptions.coberturas.join(', ')}`);
+                    if(item.selectedOptions.complementos?.length) parts.push(`Compl.: ${item.selectedOptions.complementos.join(', ')}`);
+                    if(item.selectedOptions.observations) parts.push(`Obs: ${item.selectedOptions.observations}`);
+                    detalhes = parts.join(' | ');
+                }
+
+                return {
+                    id_produto_original: item.originalId || item.id,
+                    nome: item.name,
+                    quantidade: item.quantity,
+                    preco_unitario: item.price,
+                    detalhes: detalhes
+                };
+            });
+
+            // --- 3. Monta o Objeto do Pedido (JSON) ---
+            const pedidoData = {
+                id_loja: lojaId,
+                cliente: cliente,
+                itens: itens,
+                pagamento: pagamento,
+                observacoes: observacoes,
+                valor_total: valorTotal 
+            };
+
+            // --- 4. Envia para a API REAL ---
+            try {
+                const resposta = await enviarPedidoParaAPI(pedidoData);
+
+                if (resposta.success) {
+                    cart = {}; updateCart(); orderForm.reset();
+                    loadCustomerData(); 
+                    if(moneyChangeInput) moneyChangeInput.classList.add('hidden');
+                    orderForm.querySelectorAll('input[name="payment"]').forEach(radio => radio.checked = false);
+                    
+                    showPage('menu');
+                    showSuccessAlert('Pedido enviado com sucesso! Aguarde a confirmação da loja.');
+                    
+                    openMyOrdersModal();
+                    updateMyOrdersIconVisibility();
+                    
+                } else {
+                    showAlert(resposta.message);
+                }
+
+            } catch (err) {
+                console.error("Erro no formulário:", err);
+                showAlert("Ocorreu um erro local. Tente novamente.");
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Enviar Pedido';
+            }
+        });
+        // ==========================================================
+        // ===== FIM DA FUNÇÃO DE SUBMISSÃO ATUALIZADA =====
+        // ==========================================================
+
+
+        // --- Eventos dos Modais ---
+        alertOkBtn.addEventListener('click', closeAlert);
+        successOkBtn.addEventListener('click', closeSuccessAlert);
+        modalCancelBtn.addEventListener('click', closeOptionsModal);
+        pizzaCancelBtn.addEventListener('click', closePizzaModal);
+        acaiCancelBtn.addEventListener('click', closeAcaiModal); // NOVO
+
+        // --- Eventos do Modal "Meus Pedidos" ---
+        myOrdersOpenBtn.addEventListener('click', openMyOrdersModal);
+        myOrdersCloseBtn.addEventListener('click', () => myOrdersModal.classList.add('hidden'));
+
+        // Adicionar item (Modal Bebidas)
+        optionsForm.addEventListener('submit', (e) => {
+            e.preventDefault(); const selectedOption = optionsForm.querySelector('input[name="item_option"]:checked');
+            if (!selectedOption) { modalError.textContent = 'Selecione uma opção.'; modalError.classList.remove('hidden'); return; }
+            modalError.classList.add('hidden');
+
+            const itemId = parseInt(modalConfirmBtn.dataset.itemId, 10); const item = menuData.find(i => i.id === itemId); if (!item) return;
+            const optionName = selectedOption.value; const cartId = `item-${item.id}-${optionName.replace(/\s+/g, '-')}`; const itemNameWithOptions = `${item.name} (${optionName})`;
+
+             if (cart[cartId]) { cart[cartId].quantity++; }
+             else { cart[cartId] = { ...item, id: cartId, originalId: item.id, name: itemNameWithOptions, quantity: 1, selectedOption: optionName }; }
+
+             updateCart(); closeOptionsModal();
+             showSuccessAlert(`${itemNameWithOptions} adicionado ao carrinho!`);
+        });
+
+        // Atualizar seleções (Modal Pizza)
+         pizzaForm.addEventListener('change', (e) => {
+             const target = e.target; pizzaError.classList.add('hidden');
+             if (target.name === 'pizza_size') {
+                 currentPizzaSelection.size = target.value; updatePizzaFlavorSectionVisibility(); renderPizzaBorders();
+             } else if (target.name === 'pizza_border') {
+                 currentPizzaSelection.border = target.value; updatePizzaPrice();
+             } else if (target.name === 'pizza_flavor_type') {
+                 currentPizzaSelection.flavorType = target.value;
+                 if (target.value === 'half') { populateSecondFlavorOptions(); pizzaSecondFlavorSection.classList.remove('hidden'); }
+                 else { pizzaSecondFlavorSection.classList.add('hidden'); currentPizzaSelection.flavor2 = null; }
+             } else if (target.id === 'pizza-modal-second-flavor') {
+                 const flavor2Id = target.value ? parseInt(target.value, 10) : null;
+                 currentPizzaSelection.flavor2 = menuData.find(item => item.id === flavor2Id) || null;
+             }
+        });
+
+        // Adicionar item (Modal Pizza)
+         pizzaForm.addEventListener('submit', (e) => {
+             e.preventDefault(); const selection = currentPizzaSelection;
+             if (selection.flavorType === 'half' && !selection.flavor2) { pizzaError.textContent = 'Selecione o 2º sabor.'; pizzaError.classList.remove('hidden'); return; }
+             pizzaError.classList.add('hidden');
+
+             let finalName = selection.item.name; let flavor2Name = null; let cartId = `pizza-${selection.item.id}`;
+             if (selection.flavorType === 'half' && selection.flavor2) {
+                 flavor2Name = selection.flavor2.name; const ids = [selection.item.id, selection.flavor2.id].sort((a,b) => a - b);
+                 finalName = `1/2 ${selection.item.name} | 1/2 ${flavor2Name}`; cartId = `pizza-${ids[0]}-${ids[1]}`;
+             }
+             cartId += `-${selection.size}-${selection.border}`;
+
+            if (cart[cartId]) { cart[cartId].quantity++; }
+             else {
+                 cart[cartId] = {
+                     id: cartId, originalId: selection.item.id, category: 'Pizzas', name: finalName, price: selection.price, quantity: 1,
+                     size: selection.size, border: selection.border, flavorType: selection.flavorType, flavor2Name: flavor2Name
+                 };
+             }
+             updateCart(); closePizzaModal();
+             showSuccessAlert(`Pizza ${finalName} adicionada ao carrinho!`);
+         });
+         
+        // Adicionar item (Modal Açaí - NOVO)
+        acaiForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const itemId = parseInt(acaiConfirmBtn.dataset.itemId, 10);
+            const item = menuData.find(i => i.id === itemId);
+            if (!item) {
+                showAlert("Erro ao encontrar item. Tente novamente.");
+                return;
+            }
+            
+            const cartId = `acai-${item.id}-${Date.now()}`;
+            
+            const selectedOptions = {
+                cremes: [...acaiForm.querySelectorAll('input[name="acai_creme"]:checked')].map(cb => cb.value),
+                frutas: [...acaiForm.querySelectorAll('input[name="acai_fruta"]:checked')].map(cb => cb.value),
+                coberturas: [...acaiForm.querySelectorAll('input[name="acai_cobertura"]:checked')].map(cb => cb.value),
+                complementos: [...acaiForm.querySelectorAll('input[name="acai_complemento"]:checked')].map(cb => cb.value),
+                observations: acaiObservations.value.trim()
+            };
+            
+            cart[cartId] = {
+                ...item,
+                id: cartId,
+                originalId: item.id,
+                quantity: 1, // Sempre 1 para Açaí customizado
+                selectedOptions: selectedOptions // Armazena as opções
+            };
+            
+            updateCart();
+            closeAcaiModal();
+            showSuccessAlert(`${item.name} foi montado e adicionado ao carrinho!`);
+        });
+
+        // ==========================================================
+        // ===== NOVA LÓGICA: SOCKET.IO (Cliente) =====
+        // ==========================================================
+        
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor de status! ID:', socket.id);
+        });
+
+        socket.on('status_atualizado', (data) => {
+            console.log('Status atualizado recebido:', data);
+            
+            updateMyOrdersIconVisibility();
+            
+            const orderElement = document.getElementById(`order-status-${data.id}`);
+            if (orderElement && !myOrdersModal.classList.contains('hidden')) {
+                const statusInfo = getStatusInfo(data.status);
+                
+                orderElement.className = `p-4 rounded-lg border ${statusInfo.borderColor} ${statusInfo.bgColor}`;
+                orderElement.querySelector('.flex.items-center.gap-2').innerHTML = `
+                    ${statusInfo.icon}
+                    <span class="font-medium ${statusInfo.textColor}">${statusInfo.text}</span>
+                `;
+                orderElement.querySelector('.font-bold.text-lg').className = `font-bold text-lg ${statusInfo.textColor}`;
+            }
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Desconectado do servidor de status.');
+        });
+
+
+        // ===== INICIALIZAÇÃO DA APLICAÇÃO =====
+         function initializeApp() {
+             try {
+                 renderCategoryNavigation(); 
+                 renderMenu(categories[0]); 
+                 updateCart(); 
+                 showPage('menu');
+                 loadCustomerData(); 
+                 updateMyOrdersIconVisibility();
+             } catch (error) { console.error("Erro inicialização:", error); showAlert("Erro ao carregar cardápio."); }
+         }
+
+         document.addEventListener('DOMContentLoaded', initializeApp);
+
+    </script>
+</body>
+</html>
